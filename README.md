@@ -95,3 +95,7 @@ turn into a different action; Secrets are never exported, deployed or removed.
 
 This project was built with the assistance of AI (Claude, by Anthropic). The code has been reviewed
 and tested, but as with any tool that touches a live cluster, read the dry-run output before applying.
+
+## License
+
+Licensed under the [Mozilla Public License 2.0](LICENSE).
