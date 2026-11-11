@@ -90,3 +90,8 @@ removing needs both `confirm_namespace` (== the namespace) and `confirm_cluster`
 URL reported by `check`) so a wrong kubeconfig context can't be hit by accident; `remove` only
 deletes objects this tool created; unknown argument names are errors, so a typo can't silently
 turn into a different action; Secrets are never exported, deployed or removed.
+
+## Built with AI
+
+This project was built with the assistance of AI (Claude, by Anthropic). The code has been reviewed
+and tested, but as with any tool that touches a live cluster, read the dry-run output before applying.
