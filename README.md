@@ -9,8 +9,34 @@ A desktop tool (Rust + egui) that uses your local kubeconfig to:
 - **Deploy** an exported folder one resource at a time: edit, dry-run, apply, health-check, remove.
 
 ```
-cargo run
+cargo run              # GUI
+cargo build --release  # binary: target/release/kubernetes-export
 cargo test
+```
+
+Requires a Rust toolchain (edition 2024) and a kubeconfig; the current context is used.
+Exporting needs `list` on the resource kinds below; Deploy needs the rights to apply them.
+
+## What gets exported
+
+ConfigMap, ServiceAccount, PersistentVolumeClaim, Service, Deployment, StatefulSet, DaemonSet,
+Job, CronJob, Ingress, NetworkPolicy, HorizontalPodAutoscaler, PodDisruptionBudget, Role and
+RoleBinding. Server-populated fields (uid, resourceVersion, status, clusterIP, ...) are stripped
+so the files can be applied elsewhere. Each export also writes an ordered `deploy.sh`.
+
+Two output modes:
+
+- **Template** (default): files contain `__NAMESPACE__`; run `./deploy.sh <new-namespace>`.
+- **Replace** (`--target-namespace`): the namespace is rewritten up front; run `./deploy.sh`.
+
+## Shared values
+
+A *shared value* sets one node in every resource that has it, e.g. a region or node selector.
+In the GUI use "Find & apply to all"; on the CLI use `--set 'path=yaml'`. Path syntax:
+
+```
+$pod.containers[*].env[name=AWS_REGION].value   # $pod = pod spec of any workload
+key  "quoted.key/with.dots"  [*]  [name=foo]  [0]
 ```
 
 ## Secrets
@@ -35,13 +61,14 @@ With no arguments the GUI starts. With a subcommand it runs headless and prints 
 kubernetes-export namespaces
 kubernetes-export map     --namespace qa
 kubernetes-export export  --namespace qa --out ./export [--kind Deployment] [--exclude Service/x] \
-                          [--set '$pod.containers[*].env[name=AWS_REGION].value=eu-west-1']
-kubernetes-export plan    --dir ./export                       # offline
+                          [--template | --target-namespace qa-copy] [--set '$pod.containers[*].env[name=AWS_REGION].value=eu-west-1']
+kubernetes-export plan    --dir ./export [--namespace qa-copy]  # offline
 kubernetes-export check   --dir ./export --namespace qa-copy   # read-only; prints the cluster URL
 kubernetes-export deploy  --dir ./export --namespace qa-copy   # server-side DRY RUN (default)
 kubernetes-export deploy  --dir ./export --namespace qa-copy --only configmap-cfg.yaml --apply \
-                          --confirm-namespace qa-copy --confirm-cluster <url from check>
-kubernetes-export health  --dir ./export --namespace qa-copy
+                          --confirm-namespace qa-copy --confirm-cluster <url from check> \
+                          [--create-namespace] [--wait-secs 60]
+kubernetes-export health  --dir ./export --namespace qa-copy [--only Deployment/app]
 kubernetes-export remove  --dir ./export --namespace qa-copy --file Deployment/app \
                           --confirm-namespace qa-copy --confirm-cluster <url>
 ```
@@ -50,7 +77,8 @@ kubernetes-export remove  --dir ./export --namespace qa-copy --file Deployment/a
 
 `kubernetes-export mcp` speaks MCP over stdio and exposes the same operations as tools
 (`k8s_list_namespaces`, `k8s_map`, `k8s_export`, `k8s_plan`, `k8s_check`, `k8s_deploy`,
-`k8s_health`, `k8s_remove`). Example client config:
+`k8s_health`, `k8s_remove`). Tool arguments mirror the CLI flags with underscores
+(`confirm_namespace`, `target_namespace`, `create_namespace`, `wait_secs`, ...); `kind` is a list. Example client config:
 
 ```json
 { "mcpServers": { "kubernetes-export": { "command": "/path/to/kubernetes-export", "args": ["mcp"] } } }
